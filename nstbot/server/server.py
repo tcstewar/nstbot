@@ -68,8 +68,12 @@ class NSTServer(object):
     def process_command(self, cmd):
         print 'processing command:', `cmd`
         for command in self.commands.values():
-            success = command(self, cmd)
-            if success:
+            try:
+                success = command(self, cmd)
+                if success:
+                    break
+            except:
+                print 'error processing', `cmd`
                 break
 
     @command('[?][?]', '??', 'show help')
@@ -84,11 +88,6 @@ class NSTServer(object):
         self.send("exiting...")
         import sys
         sys.exit()
-
-    @command(r'echo(\d+)', 'echo###', 'print the given number')
-    def echo(self, value):
-        self.send('value: "%s"' % value)
-
 
 
 
