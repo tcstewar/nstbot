@@ -41,6 +41,7 @@ class NSTServer(object):
 
         while True:
             try:
+                print 'waiting for connection'
                 self.conn, self.addr = self.socket.accept()
                 self.send(self.welcome_message())
                 self.conn.recv(self.buffer_size)   # try to empty the buffer
@@ -56,6 +57,8 @@ class NSTServer(object):
                         msg = msg[index + 1:]
                         self.process_command(cmd.strip())
                         index = msg.find('\n')
+            except socket.error:
+                pass
             finally:
                 self.conn.close()
 
