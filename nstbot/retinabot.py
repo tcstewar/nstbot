@@ -188,15 +188,12 @@ class RetinaBot(nstbot.NSTBot):
                 dt = 1
             self.last_timestamp = t[-1]
 
-            index_on = (data[1::packet_size] & 0x80) > 0
-            #index_off = (data[1::packet_size] & 0x80) == 0
+            index_off = (data[1::packet_size] & 0x80) == 0
 
-            delta = np.where(index_on, t - self.last_on[x, y], 0)
+            delta = np.where(index_off, t - self.last_off[x, y], 0)
 
-            self.last_on[x[index_on],
-                         y[index_on]] = t[index_on]
-            #self.last_off[x[index_off],
-            #              y[index_off]] = t[index_off]
+            self.last_off[x[index_off],
+                         y[index_off]] = t[index_off]
 
             tau = 0.05 * 1000000
             decay = np.exp(-dt/tau)
@@ -222,7 +219,7 @@ class RetinaBot(nstbot.NSTBot):
                 self.track_certainty[i] += (1-decay) * c
 
                 w = eta * ww
-                for j in np.where(w > 0.02)[0]:
+                for j in np.where(w > eta * 0.1)[0]:
                         px += w[j] * (x[j] - px)
                         py += w[j] * (y[j] - py)
                 self.p_x[i] = px
@@ -259,14 +256,13 @@ class RetinaBot(nstbot.NSTBot):
     def track_frequencies(self, freqs, sigma_t=100, sigma_p=30, eta=0.3,
                                  certainty_scale=10000):
         freqs = np.array(freqs, dtype=float)
-        track_periods = 500000/freqs
+        track_periods = 500000 / freqs
         self.track_certainty_scale = certainty_scale
 
         self.track_sigma_t = sigma_t
         self.track_sigma_p = sigma_p
         self.track_eta = eta
 
-        self.last_on = np.zeros((128, 128), dtype=np.uint32)
         self.last_off = np.zeros((128, 128), dtype=np.uint32)
         self.p_x = np.zeros_like(track_periods) + 64.0
         self.p_y = np.zeros_like(track_periods) + 64.0
@@ -288,11 +284,11 @@ if __name__ == '__main__':
     bot.connect(connection.Serial('/dev/ttyUSB0', baud=4000000))
     bot.retina(True)
     bot.show_image()
-    bot.track_spike_rate(
-                         #all=(0,0,128,128),
-                         left=(0,0,64,128),
-                         right=(64,0,128,128))
-    bot.track_frequencies(freqs=[200, 300, 400])
+    #bot.track_spike_rate(
+    #                     #all=(0,0,128,128),
+    #                     left=(0,0,64,128),
+    #                     right=(64,0,128,128))
+    bot.track_frequencies(freqs=[970], sigma_t=30, eta=0.1)
     import time
     while True:
         time.sleep(1)
