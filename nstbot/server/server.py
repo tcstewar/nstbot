@@ -66,13 +66,13 @@ class NSTServer(object):
         return '''NST robot interface.  Type '??' and hit <enter> for help.'''
 
     def process_command(self, cmd):
-        print 'processing command:', `cmd`
+        #print 'processing command:', `cmd`
         for command in self.commands.values():
             try:
                 success = command(self, cmd)
                 if success:
                     break
-            except:
+            except IOError:
                 print 'error processing', `cmd`
                 break
 
