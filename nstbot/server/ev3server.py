@@ -1,19 +1,23 @@
 import os
+import thread
 
 import nstbot.server as server
 import nstbot
 
-class RetinaProxy(nstbot.RetinaBot):
-    def __init__(self, server):
-        super(RetinaProxy, self).__init__()
-        self.server = server
-    def process_retina(self, data):
-        self.server.conn.sendall(data)
-	#print 'retina', len(data)
-
 
 class EV3Server(server.NSTServer):
-    device_path = {}
+    def __init__(self, retina=r'/dev/ttyUSB0', retina_baud=4000000, **kwargs):
+        super(EV3Server, self).__init__(**kwargs)
+        self.device_path = {}
+        if os.path.exists(retina):
+            self.retina = nstbot.connection.Serial(retina, baud=retina_baud)
+            thread.start_new_thread(self.retina_passthrough, ())
+
+    def retina_passthrough(self):
+        while not self.finished:
+            data = self.retina.receive()
+            if len(data) > 0 and self.conn is not None:
+                self.conn.sendall(data)
 
     @server.command('!M(\d)=(-?\d+)',
                     '!M[0-7]=[-100 to 100]',
@@ -80,23 +84,16 @@ class EV3Server(server.NSTServer):
         except IOError:
             del self.device_path[('tacho', port)]
 
-    retina_active = False
-    def activate_retina(self, port='/dev/ttyUSB0', baud=4000000):
-        assert self.retina_active == False
-        self.retina = RetinaProxy(self)
-        self.retina.connect(nstbot.connection.Serial(port, baud=baud))
-        self.retina_active = True
-
     @server.command('E([+-])', 'E+/-', 'enable/disable retina')
     def retina_setting(self, flag):
-        if flag == '+':
-            if not self.retina_active:
-                self.activate_retina()
-            self.retina.retina(True)
-        else:
-            if not self.retina_active:
-                self.activate_retina()
-            self.retina.retina(True)
+        if self.retina is not None:
+            self.retina.send('\nE%s\n' % flag)
+
+    @server.command('!E([01234])', '!E#', 'event data format')
+    def retina_data_format(self, value):
+        if self.retina is not None:
+            self.retina.send('\n!E%s\n' % value)
+
 
 if __name__ == '__main__':
     ev3 = EV3Server()

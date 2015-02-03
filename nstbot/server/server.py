@@ -26,6 +26,8 @@ class NSTServer(object):
     def __init__(self, port=56000, buffer_size=1024):
         self.port = port
         self.buffer_size = buffer_size
+        self.conn = None
+        self.finished = False
 
         self.commands = {}
         for name, func in inspect.getmembers(self):
@@ -61,13 +63,15 @@ class NSTServer(object):
             except socket.error:
                 pass
             finally:
-                self.conn.close()
+                if self.conn is not None:
+                    self.conn.close()
+                    self.conn = None
 
     def welcome_message(self):
         return '''NST robot interface.  Type '??' and hit <enter> for help.'''
 
     def process_command(self, cmd):
-        #print 'processing command:', `cmd`
+        #print 'processing', `cmd`
         for command in self.commands.values():
             try:
                 success = command(self, cmd)
@@ -87,7 +91,7 @@ class NSTServer(object):
 
     @command('quit', 'quit', 'stop the server')
     def quit(self):
-        self.send("exiting...")
+        self.finished = True
         import sys
         sys.exit()
 
