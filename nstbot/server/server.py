@@ -1,6 +1,7 @@
 import socket
 import re
 import inspect
+import traceback
 
 class Command(object):
     def __init__(self, regex, function, code, desc):
@@ -72,7 +73,8 @@ class NSTServer(object):
                 success = command(self, cmd)
                 if success:
                     break
-            except IOError:
+            except Exception:
+                traceback.print_exc()
                 print 'error processing', `cmd`
                 break
 
