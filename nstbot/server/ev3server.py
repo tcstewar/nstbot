@@ -22,6 +22,8 @@ class Sensor(object):
 
 class Ultrasonic(Sensor):
     def init(self):
+        with open(os.path.join(self.path, 'poll_ms'), 'w') as f:
+            f.write('50')  # fastest polling time possible
         with open(os.path.join(self.path, 'mode'), 'w') as f:
             f.write('US-DIST-IN')
         self.fn = os.path.join(self.path, 'value0')
@@ -39,7 +41,7 @@ class EV3Server(server.NSTServer):
             self.retina = nstbot.connection.Serial(retina, baud=retina_baud)
             thread.start_new_thread(self.retina_passthrough, ())
         else:
-            self.retina = False
+            self.retina = None
 
         self.sensors = {}
 
