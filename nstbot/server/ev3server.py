@@ -2,6 +2,8 @@ import os
 import thread
 import time
 
+import serial
+
 import nstbot.server as server
 import nstbot
 
@@ -17,15 +19,19 @@ class Sensor(object):
     def run(self):
         while self.running:
             value = self.get_value()
-            self.server.send('%s %s' % (self.prefix, value))
+            try:
+                self.server.send('\n%s %s' % (self.prefix, value))
+            except:
+                print 'Lost sensor connection'
+                return
             time.sleep(self.period)
 
 class Ultrasonic(Sensor):
     def init(self):
-        with open(os.path.join(self.path, 'poll_ms'), 'w') as f:
-            f.write('50')  # fastest polling time possible
         with open(os.path.join(self.path, 'mode'), 'w') as f:
             f.write('US-DIST-IN')
+        with open(os.path.join(self.path, 'poll_ms'), 'w') as f:
+            f.write('50')  # fastest polling time possible
         self.fn = os.path.join(self.path, 'value0')
 
     def get_value(self):
@@ -38,7 +44,8 @@ class EV3Server(server.NSTServer):
         self.device_path = {}
 
         if os.path.exists(retina):
-            self.retina = nstbot.connection.Serial(retina, baud=retina_baud)
+            self.retina = serial.Serial(retina, baudrate=retina_baud,
+                                        rtscts=True, timeout=None)
             thread.start_new_thread(self.retina_passthrough, ())
         else:
             self.retina = None
@@ -47,9 +54,16 @@ class EV3Server(server.NSTServer):
 
     def retina_passthrough(self):
         while not self.finished:
-            data = self.retina.receive()
-            if len(data) > 0 and self.conn is not None:
-                self.conn.sendall(data)
+            waiting = self.retina.inWaiting()
+            if waiting > 0:
+                data = self.retina.read(waiting)
+                if self.conn is not None:
+                    try:
+                        self.conn.sendall(data)
+                    except Exception:
+                        pass
+            else:
+                time.sleep(0.001)
 
     @server.command('!M(\d)=(-?\d+)',
                     '!M[0-7]=[-100 to 100]',
@@ -132,12 +146,12 @@ class EV3Server(server.NSTServer):
     @server.command('E([+-])', 'E+/-', 'enable/disable retina')
     def retina_setting(self, flag):
         if self.retina is not None:
-            self.retina.send('\nE%s\n' % flag)
+            self.retina.write('\nE%s\n' % flag)
 
     @server.command('!E([01234])', '!E#', 'event data format')
     def retina_data_format(self, value):
         if self.retina is not None:
-            self.retina.send('\n!E%s\n' % value)
+            self.retina.write('\n!E%s\n' % value)
 
     @server.command(r'!LS[+]([1234]),(.+),(\d+)', '!LS+PORT,SENSOR,PERIOD',
                     'stream sensor data')
