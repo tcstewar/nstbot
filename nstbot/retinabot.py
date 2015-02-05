@@ -281,16 +281,19 @@ class RetinaBot(nstbot.NSTBot):
 
 if __name__ == '__main__':
     import connection
+    import time
     bot = RetinaBot()
-    bot.connect(connection.Serial('/dev/ttyUSB0', baud=4000000))
+    #bot.connect(connection.Serial('/dev/ttyUSB0', baud=4000000))
+    #bot.connect(connection.Socket('10.162.177.187'))
+    bot.connect(connection.Socket('192.168.1.161'))
+    time.sleep(1)
     bot.retina(True)
     bot.show_image()
     #bot.track_spike_rate(
     #                     #all=(0,0,128,128),
     #                     left=(0,0,64,128),
     #                     right=(64,0,128,128))
-    bot.track_frequencies(freqs=[970], sigma_t=30, eta=0.1)
-    import time
+    #bot.track_frequencies(freqs=[200, 300, 400])
     while True:
         time.sleep(1)
 
