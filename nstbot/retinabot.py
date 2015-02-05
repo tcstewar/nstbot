@@ -21,6 +21,7 @@ class RetinaBot(nstbot.NSTBot):
 
     def retina(self, active, bytes_in_timestamp=4):
         if active:
+            assert bytes_in_timestamp in [0, 2, 3, 4]
             cmd = '!E%d\nE+\n' % bytes_in_timestamp
             self.retina_packet_size = 2 + bytes_in_timestamp
         else:
