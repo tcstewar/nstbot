@@ -1,14 +1,33 @@
-import nstbot
-import retinabot
+import thread
 
-class EV3Bot(retinabot.RetinaBot):
+import nstbot
+
+class EV3Bot(nstbot.NSTBot):
     def initialize(self):
         super(EV3Bot, self).initialize()
-        self.ultrasonic = {1: 0, 2: 0, 3: 0, 4: 0}
+        self.lego_sensors = [0, 0, 0, 0]
         self.connection.send('!M+\n')
+
+    def connect(self, connection):
+        super(EV3Bot, self).connect(connection)
+        thread.start_new_thread(self.sensor_loop, ())
+
     def disconnect(self):
         self.connection.send('!M-\n')
         super(EV3Bot, self).disconnect()
+
+    def sensor_loop(self):
+        """Handle all data coming from the robot."""
+        buffered_ascii = ''
+        while True:
+            data = self.connection.receive()
+
+            buffered_ascii += data
+
+            while '\n' in buffered_ascii:
+                cmd, buffered_ascii = buffered_ascii.split('\n', 1)
+                self.process_ascii(cmd)
+
 
     def servo(self, index, position, msg_period=None):
         position = int(position * 100)
@@ -28,27 +47,21 @@ class EV3Bot(retinabot.RetinaBot):
         cmd = '!M%s=%d\n' % ('ABCD'[index], power)
         self.send('motor%d' % index, cmd, msg_period=msg_period)
 
-    def activate_sensor(self, name, ports, period=0.05):
-        if name == 'ultrasonic':
-            code = 'US'
-        else:
-            raise Exception('unknown sensor: %s' % name)
-
+    def activate_sensor(self, ports, period=0.05):
         period_ms = int(period * 1000)
 
         for port in ports:
-            cmd = '!LS+%d,%s,%d\n' % (port, code, period_ms)
+            cmd = '!LS+%d,%d\n' % (port, period_ms)
             self.send('', cmd, msg_period=None)
 
     def process_ascii(self, msg):
-        #print 'ascii', `msg`
-        if msg.startswith('-LSUS'):
-            port = int(msg[5])
-            value = int(msg[7:])
+        if msg.startswith('-LS'):
+            port = int(msg[3])
+            value = int(msg[5:])
             max = 100
-            if value > 100:
-                value = 100
-            self.ultrasonic[port] = value / float(max)
+            if value > max:
+                value = max
+            self.lego_sensors[port - 1] = value / float(max)
         elif len(msg) == 0:
             pass
         else:
@@ -59,19 +72,19 @@ if __name__ == '__main__':
 
     import connection
     bot = EV3Bot()
-    bot.connect(connection.Socket('192.168.1.161'))
+    bot.connect(connection.Socket('192.168.1.160'))
     #bot.connect(connection.Socket('10.162.177.187'))
     time.sleep(1)
-    bot.retina(True, bytes_in_timestamp=0)
-    bot.show_image()
+    #bot.retina(True, bytes_in_timestamp=0)
+    #bot.show_image()
 
-    bot.activate_sensor('ultrasonic', [1, 2, 3, 4])
+    bot.activate_sensor([1, 2, 3, 4])
 
 
     import random
     while True:
         time.sleep(0.1)
-        print [bot.ultrasonic[x] for x in [1, 2, 3, 4]]
+        print bot.lego_sensors
         bot.motor(0, 0)
         bot.motor(1, 0)
         bot.motor(2, 0)
