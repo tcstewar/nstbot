@@ -1,6 +1,7 @@
 import os
 import thread
 import time
+import traceback
 
 import serial
 
@@ -19,13 +20,18 @@ class Sensor(object):
     def run(self):
         while self.running:
             if self.path is None:
-                self.find_path()
+                try:
+                    self.find_path()
+                except IOError:
+                    pass
             if self.path is not None:
                 value = self.get_value()
-                msg = '-LS%d %s' % (self.port, value)
+                msg = '-LS%d %d' % (self.port, value)
+                print 'msg', msg
                 try:
                     self.server.send(msg)
                 except:
+                    traceback.print_exc()
                     self.running = False
             time.sleep(self.period)
 
@@ -51,9 +57,31 @@ class Sensor(object):
     def get_value(self):
         try:
             with open(self.fn) as f:
-                return f.read().strip()
+                value = f.read().strip()
         except IOError:
             self.path = None
+            return 0
+
+        value = int(value)
+        if self.name == 'lego-nxt-us':
+            v_0 = 300.0
+            v_1 = 25.0
+        elif self.name == 'ev3-uart-33':
+            v_0 = 100.0
+            v_1 = 5.0
+        else:
+            print 'unknown sensor type', self.name
+            return 0
+
+        v = (value - v_0) / (v_1 - v_0)
+        if v < 0:
+            v = 0
+        if v > 1:
+            v = 1
+        return int(v * 100)
+
+
+
 
 
 class EV3Server(server.NSTServer):
