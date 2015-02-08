@@ -8,62 +8,60 @@ import nstbot.server as server
 import nstbot
 
 class Sensor(object):
-    def __init__(self, server, path, period, prefix):
+    def __init__(self, server, port, period):
         self.server = server
-        self.path = path
+        self.port = port
         self.period = period
-        self.prefix = prefix
-        self.init()
+        self.path = None
         self.running = True
         thread.start_new_thread(self.run, ())
+
     def run(self):
         while self.running:
-            value = self.get_value()
-            try:
-                self.server.send('\n%s %s' % (self.prefix, value))
-            except:
-                print 'Lost sensor connection'
-                return
+            if self.path is None:
+                self.find_path()
+            if self.path is not None:
+                value = self.get_value()
+                msg = '-LS%d %s' % (self.port, value)
+                try:
+                    self.server.send(msg)
+                except:
+                    self.running = False
             time.sleep(self.period)
 
-class Ultrasonic(Sensor):
-    def init(self):
-        with open(os.path.join(self.path, 'mode'), 'w') as f:
-            f.write('US-DIST-IN')
-        with open(os.path.join(self.path, 'poll_ms'), 'w') as f:
-            f.write('50')  # fastest polling time possible
-        self.fn = os.path.join(self.path, 'value0')
+    def find_path(self):
+        base = r'/sys/class/msensor'
+        for path in os.listdir(base):
+            with open(os.path.join(base, path, 'port_name')) as f:
+                port_name = f.read().strip()
+            if port_name == 'in%d' % self.port:
+                with open(os.path.join(base, path, 'name')) as f:
+                    self.name = f.read().strip()
+                self.path = os.path.join(base, path)
+                self.fn = os.path.join(self.path, 'value0')
+                self.init_sensor()
+
+    def init_sensor(self):
+        if self.name == 'lego-nxt-us':
+            with open(os.path.join(self.path, 'mode'), 'w') as f:
+                f.write('US-DIST-IN')
+            with open(os.path.join(self.path, 'poll_ms'), 'w') as f:
+                f.write('50')  # fastest polling time possible
 
     def get_value(self):
-        with open(self.fn) as f:
-            return f.read().strip()
+        try:
+            with open(self.fn) as f:
+                return f.read().strip()
+        except IOError:
+            self.path = None
+
 
 class EV3Server(server.NSTServer):
-    def __init__(self, retina=r'/dev/ttyUSB0', retina_baud=4000000, **kwargs):
+    def __init__(self, **kwargs):
         super(EV3Server, self).__init__(**kwargs)
         self.device_path = {}
 
-        if os.path.exists(retina):
-            self.retina = serial.Serial(retina, baudrate=retina_baud,
-                                        rtscts=True, timeout=None)
-            thread.start_new_thread(self.retina_passthrough, ())
-        else:
-            self.retina = None
-
         self.sensors = {}
-
-    def retina_passthrough(self):
-        while not self.finished:
-            waiting = self.retina.inWaiting()
-            if waiting > 0:
-                data = self.retina.read(waiting)
-                if self.conn is not None:
-                    try:
-                        self.conn.sendall(data)
-                    except Exception:
-                        pass
-            else:
-                time.sleep(0.001)
 
     @server.command('!M(\d)=(-?\d+)',
                     '!M[0-7]=[-100 to 100]',
@@ -85,19 +83,6 @@ class EV3Server(server.NSTServer):
             with open(os.path.join(base, path, 'port_name')) as f:
                 port_name = f.read().strip()
             if port_name == 'out' + port:
-                return os.path.join(base, path)
-        return None
-
-    def find_sensor(self, name, port):
-        base = r'/sys/class/msensor'
-        for path in os.listdir(base):
-            with open(os.path.join(base, path, 'name')) as f:
-                n = f.read().strip()
-            if n != name:
-                continue
-            with open(os.path.join(base, path, 'port_name')) as f:
-                port_name = f.read().strip()
-            if port_name == 'in%d' % port:
                 return os.path.join(base, path)
         return None
 
@@ -143,46 +128,22 @@ class EV3Server(server.NSTServer):
         except IOError:
             del self.device_path[('tacho', port)]
 
-    @server.command('E([+-])', 'E+/-', 'enable/disable retina')
-    def retina_setting(self, flag):
-        if self.retina is not None:
-            self.retina.write('\nE%s\n' % flag)
-
-    @server.command('!E([01234])', '!E#', 'event data format')
-    def retina_data_format(self, value):
-        if self.retina is not None:
-            self.retina.write('\n!E%s\n' % value)
-
-    @server.command(r'!LS[+]([1234]),(.+),(\d+)', '!LS+PORT,SENSOR,PERIOD',
+    @server.command(r'!LS[+]([1234]),(\d+)', '!LS+PORT,PERIOD',
                     'stream sensor data')
-    def sensor_activate(self, port, sensor, period):
+    def sensor_activate(self, port, period):
         port = int(port)
         period = int(period) * 0.001
-        if sensor == 'US':
-            name = 'lego-nxt-us'
-            cls = Ultrasonic
-        else:
-            print 'unknown sensor', sensor
-            return
-        path = self.find_sensor(name, port)
-        if path is None:
-            print 'no attached sensor', sensor, name, port
-            return
-        key = sensor, port
-        if key in self.sensors:
-            self.sensor_deactivate(port, sensor)
-        prefix = '-LS%s%d' % (sensor, port)
-        self.sensors[key] = cls(self, path, period, prefix)
+        if port in self.sensors:
+            self.sensors[port].running = False
+        self.sensors[port] = Sensor(self, port, period)
 
-
-    @server.command(r'!LS[-]([1234]),(.+)', '!LS-PORT,SENSOR',
+    @server.command(r'!LS[-]([1234])', '!LS-PORT',
                     'stop streaming sensor data')
-    def sensor_deactivate(self, port, sensor):
+    def sensor_deactivate(self, port):
         port = int(port)
-        key = sensor, port
-        if key in self.sensors:
-            self.sensors[key].running = False
-            self.sensors[key] = None
+        if port in self.sensors:
+            self.sensors[port].running = False
+            del self.sensors[port]
 
 if __name__ == '__main__':
     ev3 = EV3Server()
