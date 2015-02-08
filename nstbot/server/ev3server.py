@@ -27,11 +27,9 @@ class Sensor(object):
             if self.path is not None:
                 value = self.get_value()
                 msg = '-LS%d %d' % (self.port, value)
-                print 'msg', msg
                 try:
                     self.server.send(msg)
                 except:
-                    traceback.print_exc()
                     self.running = False
             time.sleep(self.period)
 
