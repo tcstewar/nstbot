@@ -83,9 +83,11 @@ class Sensor(object):
 
 
 class EV3Server(server.NSTServer):
-    def __init__(self, **kwargs):
+    def __init__(self, position_motors='', **kwargs):
         super(EV3Server, self).__init__(**kwargs)
         self.device_path = {}
+        self.position_motors = position_motors
+
 
         self.sensors = {}
 
@@ -123,13 +125,46 @@ class EV3Server(server.NSTServer):
         for port in 'ABCD':
             path = self.find_tacho_motor(port)
             if path is not None:
-                self.device_path[('tacho', port)] = path
-                with open(os.path.join(path, 'run'), 'w') as f:
-                    f.write(mode_t)
+                if port in self.position_motors:
+                    with open(os.path.join(path, 'run_mode'), 'w') as f:
+                        f.write('position')
+                    with open(os.path.join(path, 'stop_mode'), 'w') as f:
+                        f.write('hold')
+                    with open(os.path.join(path, 'regulation_mode'), 'w') as f:
+                        f.write('on')
+                    with open(os.path.join(path, 'position_mode'), 'w') as f:
+                        f.write('relative')
+                    with open(os.path.join(path, 'ramp_up_sp'), 'w') as f:
+                        f.write('300')
+                    with open(os.path.join(path, 'ramp_down_sp'), 'w') as f:
+                        f.write('300')
+                    with open(os.path.join(path, 'pulses_per_second_sp'), 'w') as f:
+                        f.write('200')
+                else:
+                    self.device_path[('tacho', port)] = path
+                    with open(os.path.join(path, 'run'), 'w') as f:
+                        f.write(mode_t)
+                    with open(os.path.join(path, 'run_mode'), 'w') as f:
+                        f.write('forever')
+                    with open(os.path.join(path, 'stop_mode'), 'w') as f:
+                        f.write('coast')
+                    with open(os.path.join(path, 'regulation_mode'), 'w') as f:
+                        f.write('off')
         #for index in range(8):
         #    fn = r'/sys/class/servo-motor/motor%d/command' % index
         #    with open(fn, 'w') as f:
         #        f.write(mode)
+
+    def process_command(self, cmd):
+        if cmd.startswith('!T '):
+            x = cmd[3:].split()
+            if len(x) == 4:
+                self.commands['motor'].function(self, 'A', x[0])
+                self.commands['motor'].function(self, 'B', x[1])
+                self.commands['motor'].function(self, 'C', x[2])
+                self.commands['motor'].function(self, 'D', x[3])
+        else:
+            super(EV3Server, self).process_command(cmd)
 
     @server.command('!M([ABCD])=(-?\d+)',
                     '!M[A-D]=[-100 to 100]',
@@ -149,8 +184,18 @@ class EV3Server(server.NSTServer):
                 return
 
         try:
-            with open(os.path.join(fn, 'duty_cycle_sp'), 'w') as f:
-                f.write('%d' % setting)
+            if port in self.position_motors:
+                with open(os.path.join(fn, 'run'), 'w') as f:
+                    f.write('0')
+
+                print 'moving D', setting
+                with open(os.path.join(fn, 'position_sp'), 'w') as f:
+                    f.write('%d' % setting)
+                with open(os.path.join(fn, 'run'), 'w') as f:
+                    f.write('1')
+            else:
+                with open(os.path.join(fn, 'duty_cycle_sp'), 'w') as f:
+                    f.write('%d' % setting)
         except IOError:
             del self.device_path[('tacho', port)]
 
@@ -172,7 +217,7 @@ class EV3Server(server.NSTServer):
             del self.sensors[port]
 
 if __name__ == '__main__':
-    ev3 = EV3Server()
+    ev3 = EV3Server()#position_motors='D')
     #print ev3.find_tacho_motor('A')
     #print ev3.find_sensor(name='lego-nxt-us', port=3)
     ev3.run()

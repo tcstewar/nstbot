@@ -56,9 +56,14 @@ class NSTServer(object):
                         break
                     index = msg.find('\n')
                     while index > -1:
-                        cmd = msg[:index]
+                        cmd = msg[:index].strip()
                         msg = msg[index + 1:]
-                        self.process_command(cmd.strip())
+                        print cmd, len(msg)
+                        if len(msg) > 0 and cmd[:2] == '!T' and msg[:2]=='!T':
+                            # skip this message
+                            pass
+                        else:
+                            self.process_command(cmd)
                         index = msg.find('\n')
             except socket.error:
                 pass
