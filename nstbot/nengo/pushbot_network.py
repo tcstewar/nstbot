@@ -21,31 +21,48 @@ class LaserNode(nengo.Node):
     def laser(self, t, x):
         self.bot.laser(x[0] * 1000, msg_period=self.msg_period)
 
+class RetinaNode(nengo.Node):
+    def __init__(self, bot, msg_period):
+        super(RetinaNode, self).__init__(self.retina, size_in=0, size_out=128*128)
+        self.bot = bot
+        self.msg_period = msg_period
+        self.bot.show_image()
+
+    def retina(self, t):
+        return self.bot.image.flatten()
+
+class FrequencyNode(nengo.Node):
+    def __init__(self, bot, msg_period, freqs):
+        super(FrequencyNode, self).__init__(self.freqs, 
+                                            size_in=0, size_out=len(freqs)*3)
+        self.bot = bot
+        self.bot.track_frequencies(freqs=freqs)
+        self.msg_period = msg_period
+        self.result = np.zeros(3*len(freqs), dtype='float')
+        self.n_freqs = len(freqs)
+
+    def freqs(self, t):
+        for i in range(self.n_freqs):
+            self.result[i * 3 : (i + 1) * 3] = self.bot.get_frequency_info(i)
+        return self.result
+
 
 class PushBotNetwork(nengo.Network):
-    def __init__(self, connection, msg_period=0.01,
-                 motor=False, laser=False):
+    def __init__(self, connection, msg_period=0.01, label='PushBot',
+                 motor=False, laser=False, retina=False, freqs=[]):
+        super(PushBotNetwork, self).__init__(label=label)
         self.bot = nstbot.PushBot()
         self.bot.connect(connection)
 
-        if motor:
-            self.motor = MotorNode(self.bot, msg_period=msg_period)
-        if laser:
-            self.laser = LaserNode(self.bot, msg_period=msg_period)
-
-if __name__ == '__main__':
-    import nengo
-
-    model = nengo.Network()
-    with model:
-        stim = nengo.Node(np.sin)
-        bot = PushBotNetwork(nstbot.Socket('10.162.177.135'),
-                             motor=True, laser=True)
-
-        #nengo.Connection(stim, bot.motor[0])
-        nengo.Connection(stim, bot.laser)
-
-    sim = nengo.Simulator(model)
-    sim.run(10)
-
-
+        with self:
+            if motor:
+                self.motor = MotorNode(self.bot, msg_period=msg_period)
+            if laser:
+                self.laser = LaserNode(self.bot, msg_period=msg_period)
+            if retina or freqs:
+                self.bot.retina(True)
+                if retina:
+                    self.retina = RetinaNode(self.bot, msg_period=msg_period)
+                if freqs:
+                    self.freqs = FrequencyNode(self.bot, msg_period=msg_period,
+                                               freqs=freqs)
