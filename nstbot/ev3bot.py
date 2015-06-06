@@ -11,6 +11,7 @@ class EV3Bot(nstbot.NSTBot):
     def connect(self, connection):
         super(EV3Bot, self).connect(connection)
         thread = threading.Thread(target=self.sensor_loop)
+        thread.daemon = True
         thread.start()
 
     def disconnect(self):

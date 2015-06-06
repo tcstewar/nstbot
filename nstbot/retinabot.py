@@ -14,6 +14,7 @@ class RetinaBot(nstbot.NSTBot):
     def connect(self, connection):
         super(RetinaBot, self).connect(connection)
         thread = threading.Thread(target=self.sensor_loop)
+        thread.daemon = True
         thread.start()
 
     def disconnect(self):
@@ -35,6 +36,7 @@ class RetinaBot(nstbot.NSTBot):
             self.image = np.zeros((128, 128), dtype=float)
             thread = threading.Thread(target=self.image_loop,
                                       args=(decay, display_mode))
+            thread.daemon = True
             thread.start()
 
     def image_loop(self, decay, display_mode):
