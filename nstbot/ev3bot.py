@@ -47,6 +47,18 @@ class EV3Bot(nstbot.NSTBot):
         cmd = '!M%s=%d\n' % ('ABCD'[index], power)
         self.send('motor%d' % index, cmd, msg_period=msg_period)
 
+    def motors(self, powers, msg_period=None):
+        p = []
+        for i, pp in enumerate(powers):
+            pp = int(pp * 100)
+            if pp < -100:
+                pp = -100
+            if pp > 100:
+                pp = 100
+            p.append(pp)
+        cmd = '!T %d %d %d %d\n' % tuple(p)
+        self.send('motors', cmd, msg_period=msg_period)
+
     def activate_sensor(self, ports, period=0.05):
         period_ms = int(period * 1000)
 
