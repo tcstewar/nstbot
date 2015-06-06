@@ -1,4 +1,4 @@
-import retinabot
+from . import retinabot
 
 class PushBot(retinabot.RetinaBot):
     def initialize(self):
@@ -46,8 +46,6 @@ class PushBot(retinabot.RetinaBot):
         else:
             cmd = '!PC=%d\n!PC0=%d\n!PC1=%d\n' % (int(1000000/freq),
                     int(500000/freq), int(500000/freq))
-        print 'led', cmd
-
         self.send('led', cmd, msg_period)
 
 

@@ -1,6 +1,6 @@
-import thread
+import threading
 
-import nstbot
+from . import nstbot
 
 class EV3Bot(nstbot.NSTBot):
     def initialize(self):
@@ -10,7 +10,8 @@ class EV3Bot(nstbot.NSTBot):
 
     def connect(self, connection):
         super(EV3Bot, self).connect(connection)
-        thread.start_new_thread(self.sensor_loop, ())
+        thread = threading.Thread(target=self.sensor_loop)
+        thread.start()
 
     def disconnect(self):
         self.connection.send('!M-\n')
@@ -77,7 +78,7 @@ class EV3Bot(nstbot.NSTBot):
         elif len(msg) == 0:
             pass
         else:
-            print 'unknown msg', `msg`
+            print('unknown msg: %s' % repr(msg))
 
 if __name__ == '__main__':
     import time
@@ -96,7 +97,7 @@ if __name__ == '__main__':
     import random
     while True:
         time.sleep(0.1)
-        print bot.lego_sensors
+        print(bot.lego_sensors)
         bot.motor(0, 0)
         bot.motor(1, 0)
         bot.motor(2, 0)

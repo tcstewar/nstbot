@@ -1,6 +1,6 @@
-import nstbot
+from . import nstbot
 import numpy as np
-import thread
+import threading
 
 class RetinaBot(nstbot.NSTBot):
     def initialize(self):
@@ -13,7 +13,8 @@ class RetinaBot(nstbot.NSTBot):
 
     def connect(self, connection):
         super(RetinaBot, self).connect(connection)
-        thread.start_new_thread(self.sensor_loop, ())
+        thread = threading.Thread(target=self.sensor_loop)
+        thread.start()
 
     def disconnect(self):
         self.retina(False)
@@ -32,7 +33,9 @@ class RetinaBot(nstbot.NSTBot):
     def show_image(self, decay=0.5, display_mode='quick'):
         if self.image is None:
             self.image = np.zeros((128, 128), dtype=float)
-            thread.start_new_thread(self.image_loop, (decay, display_mode))
+            thread = threading.Thread(target=self.image_loop,
+                                      args=(decay, display_mode))
+            thread.start()
 
     def image_loop(self, decay, display_mode):
         import pylab
@@ -137,7 +140,7 @@ class RetinaBot(nstbot.NSTBot):
                 self.process_ascii(cmd)
 
     def process_ascii(self, message):
-        print 'ascii', `message`
+        pass
 
     last_timestamp = None
     def process_retina(self, data):

@@ -1,6 +1,7 @@
-import connection
 import time
 import atexit
+
+from . import connection
 
 class NSTBot(object):
     def __init__(self):
