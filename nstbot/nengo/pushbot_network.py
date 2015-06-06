@@ -14,7 +14,7 @@ class MotorNode(nengo.Node):
 
 class LaserNode(nengo.Node):
     def __init__(self, bot, msg_period):
-        super(MotorNode, self).__init__(self.motor, size_in=1, size_out=0)
+        super(LaserNode, self).__init__(self.laser, size_in=1, size_out=0)
         self.bot = bot
         self.msg_period = msg_period
 
@@ -39,9 +39,11 @@ if __name__ == '__main__':
     model = nengo.Network()
     with model:
         stim = nengo.Node(np.sin)
-        bot = PushBotNetwork(nstbot.Socket('10.162.177.135'), motor=True)
+        bot = PushBotNetwork(nstbot.Socket('10.162.177.135'),
+                             motor=True, laser=True)
 
-        nengo.Connection(stim, bot.motor[0])
+        #nengo.Connection(stim, bot.motor[0])
+        nengo.Connection(stim, bot.laser)
 
     sim = nengo.Simulator(model)
     sim.run(10)
