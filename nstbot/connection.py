@@ -11,10 +11,21 @@ class Serial(object):
 
 import socket
 class Socket(object):
+    cache = {}
     def __init__(self, address, port=56000):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((address, port))
-        self.socket.settimeout(0)
+        self.socket = Socket.get_socket(address, port)
+
+    @classmethod
+    def get_socket(cls, address, port):
+        key = (address, port)
+        s = cls.cache.get(key, None)
+        if s is None:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((address, port))
+            s.settimeout(0)
+            cls.cache[key] = s
+        return s
+
     def send(self, message):
         self.socket.send(message)
     def receive(self):
