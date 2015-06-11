@@ -21,6 +21,15 @@ class LaserNode(nengo.Node):
     def laser(self, t, x):
         self.bot.laser(x[0] * 1000, msg_period=self.msg_period)
 
+class BeepNode(nengo.Node):
+    def __init__(self, bot, msg_period):
+        super(BeepNode, self).__init__(self.beep, size_in=1, size_out=0)
+        self.bot = bot
+        self.msg_period = msg_period
+
+    def beep(self, t, x):
+        self.bot.beep(x[0] * 1000, msg_period=self.msg_period)
+
 class RetinaNode(nengo.Node):
     def __init__(self, bot, msg_period):
         super(RetinaNode, self).__init__(self.retina, size_in=0, size_out=128*128)
@@ -33,7 +42,7 @@ class RetinaNode(nengo.Node):
 
 class FrequencyNode(nengo.Node):
     def __init__(self, bot, msg_period, freqs):
-        super(FrequencyNode, self).__init__(self.freqs, 
+        super(FrequencyNode, self).__init__(self.freqs,
                                             size_in=0, size_out=len(freqs)*3)
         self.bot = bot
         self.bot.track_frequencies(freqs=freqs)
@@ -49,7 +58,8 @@ class FrequencyNode(nengo.Node):
 
 class PushBotNetwork(nengo.Network):
     def __init__(self, connection, msg_period=0.01, label='PushBot',
-                 motor=False, laser=False, retina=False, freqs=[]):
+                 motor=False, laser=False, retina=False, freqs=[],
+                 beep=False):
         super(PushBotNetwork, self).__init__(label=label)
         self.bot = nstbot.PushBot()
         self.bot.connect(connection)
@@ -59,6 +69,8 @@ class PushBotNetwork(nengo.Network):
                 self.motor = MotorNode(self.bot, msg_period=msg_period)
             if laser:
                 self.laser = LaserNode(self.bot, msg_period=msg_period)
+            if beep:
+                self.beep = BeepNode(self.bot, msg_period=msg_period)
             if retina or freqs:
                 self.bot.retina(True)
                 if retina:

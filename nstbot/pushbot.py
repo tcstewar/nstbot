@@ -34,7 +34,7 @@ class PushBot(retinabot.RetinaBot):
         self.send('motor', cmd, msg_period=msg_period)
 
     def beep(self, freq, msg_period=None):
-        if freq <= 0:
+        if freq <= 1:
             cmd = '!PB=0\n!PB0=0\n'
         else:
             cmd = '!PB=%d\n!PB0=%%50\n' % int(1000000/freq)

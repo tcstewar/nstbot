@@ -1,21 +1,19 @@
-from nstbot.nengo.pushbot_network import PushBotNetwork
 import nstbot
 import numpy as np
 import nengo
 
+
 model = nengo.Network()
 with model:
-    stim = nengo.Node(np.sin)
-    bot = PushBotNetwork(
-            #nstbot.Socket('10.162.177.135'),
-            nstbot.Serial('/dev/ttyUSB0', baud=4000000),
-            motor=True, laser=True, retina=True, freqs=[100, 200, 300])
+    bot = nstbot.PushBotNetwork(
+            nstbot.Socket('10.162.177.135'),
+            motor=True, laser=True, retina=False, freqs=[100, 200, 300],
+            beep=True)
 
     #nengo.Connection(stim, bot.motor[0])
-    nengo.Connection(stim, bot.laser)
+    motor = nengo.Node([0,0])
+    nengo.Connection(motor, bot.motor)
 
-sim = nengo.Simulator(model)
-sim.run(10)
-
-
+    beep = nengo.Node([0])
+    nengo.Connection(beep, bot.beep)
 
