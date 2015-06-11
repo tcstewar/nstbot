@@ -2,6 +2,8 @@ from . import nstbot
 import numpy as np
 import threading
 
+
+
 class RetinaBot(nstbot.NSTBot):
     def initialize(self):
         super(RetinaBot, self).initialize()
@@ -10,6 +12,41 @@ class RetinaBot(nstbot.NSTBot):
         self.image = None
         self.count_spike_regions = None
         self.track_periods = None
+        self.sensor = {}
+        self.sensor_scale = {}
+        self.sensor_map = {}
+        self.add_sensor('battery', bit=0, range=1.0, length=1)
+        self.add_sensor('adc0', bit=1, range=1024, length=1)
+        self.add_sensor('adc1', bit=2, range=1024, length=1)
+        self.add_sensor('adc2', bit=3, range=1024, length=1)
+        self.add_sensor('adc3', bit=4, range=1024, length=1)
+        self.add_sensor('adc4', bit=5, range=1024, length=1)
+        self.add_sensor('adc5', bit=6, range=1024, length=1)
+        self.add_sensor('gyro', bit=7, range=32768, length=3)
+        self.add_sensor('accel', bit=8, range=32768, length=3)
+        self.add_sensor('compass', bit=9, range=4096, length=3)
+        self.add_sensor('temperature', bit=10, range=1, length=1)
+        self.add_sensor('quaternion', bit=11, range=1, length=4)
+
+    def add_sensor(self, name, bit, range, length):
+        value = np.zeros(length)
+        self.sensor[bit] = value
+        self.sensor[name] = value
+        self.sensor_map[bit] = name
+        self.sensor_map[name] = bit
+        self.sensor_scale[bit] = 1.0 / range
+
+    def activate_sensors(self, period=0.1, **names):
+        bits = 0
+        for name in names:
+            bit = self.sensor_map[name]
+            bits += 1 << bit
+        period_ms = int(period * 1000)
+        cmd = '!S+%d,%d\n' % (bits, period_ms)
+        self.connection.send(cmd)
+
+    def get_sensor(self, name):
+        return self.sensor[name]
 
     def connect(self, connection):
         super(RetinaBot, self).connect(connection)
@@ -142,7 +179,18 @@ class RetinaBot(nstbot.NSTBot):
                 self.process_ascii(cmd)
 
     def process_ascii(self, message):
-        pass
+        try:
+            if message[:2] == '-S':
+                data = message[2:].split()
+                index = int(data[0])
+                scale = self.sensor_scale[index]
+                values = [float(x)*scale for x in data[1:]]
+                self.sensor[index] = values
+                self.sensor[self.sensor_map[index]] = values
+        except:
+            print('Error processing "%s"' % message)
+            import traceback
+            traceback.print_exc()
 
     last_timestamp = None
     def process_retina(self, data):

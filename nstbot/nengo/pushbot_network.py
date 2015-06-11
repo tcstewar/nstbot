@@ -56,10 +56,23 @@ class FrequencyNode(nengo.Node):
         return self.result
 
 
+class SensorNode(nengo.Node):
+    def __init__(self, bot, key):
+        self.bot = bot
+        length = len(bot.get_sensor(key))
+        self.key = key
+        super(SensorNode, self).__init__(self.sensor,
+                                         size_in=0, size_out=length)
+
+    def sensor(self, t):
+        return self.bot.get_sensor(self.key)
+
+
+
 class PushBotNetwork(nengo.Network):
     def __init__(self, connection, msg_period=0.01, label='PushBot',
                  motor=False, laser=False, retina=False, freqs=[],
-                 beep=False):
+                 beep=False, **sensors):
         super(PushBotNetwork, self).__init__(label=label)
         self.bot = nstbot.PushBot()
         self.bot.connect(connection)
@@ -78,3 +91,10 @@ class PushBotNetwork(nengo.Network):
                 if freqs:
                     self.freqs = FrequencyNode(self.bot, msg_period=msg_period,
                                                freqs=freqs)
+            if len(sensors) > 0:
+                self.bot.activate_sensors(period=msg_period, **sensors)
+                for k, v in sensors.items():
+                    if v:
+                        setattr(self, k, SensorNode(self.bot, k))
+
+
