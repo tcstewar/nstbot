@@ -75,7 +75,6 @@ class RetinaBot(nstbot.NSTBot):
                                       args=(decay, display_mode))
             thread.daemon = True
             thread.start()
-            print thread
 
     def image_loop(self, decay, display_mode):
         import pylab
@@ -110,6 +109,7 @@ class RetinaBot(nstbot.NSTBot):
             scatter = None
 
         while True:
+
             img.set_data(self.image)
 
             for k, rect in regions.items():
@@ -122,9 +122,15 @@ class RetinaBot(nstbot.NSTBot):
                 scatter.set_color(c)
 
             if display_mode == 'quick':
-                # this is much faster, but doesn't work on all systems
+                # this is faster, but doesn't work on all systems
+                fig.canvas_draw()
+                fig.canvas.flush_events()
+
+            elif display_mode == 'ubuntu_quick':
+                # this is even faster, but doesn't work on all systems
                 ax.draw_artist(ax.patch)
                 ax.draw_artist(img)
+                ax.draw_artist(scatter)
                 fig.canvas.update()
 
                 fig.canvas.flush_events()
