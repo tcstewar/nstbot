@@ -123,7 +123,7 @@ class RetinaBot(nstbot.NSTBot):
 
             if display_mode == 'quick':
                 # this is faster, but doesn't work on all systems
-                fig.canvas_draw()
+                fig.canvas.draw()
                 fig.canvas.flush_events()
 
             elif display_mode == 'ubuntu_quick':
