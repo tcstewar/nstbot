@@ -70,12 +70,14 @@ class SensorNode(nengo.Node):
 
 
 class PushBotNetwork(nengo.Network):
-    def __init__(self, connection, msg_period=0.01, label='PushBot',
+    def __init__(self, connection=None, msg_period=0.01, label='PushBot',
                  motor=False, laser=False, retina=False, freqs=[],
                  beep=False, **sensors):
         super(PushBotNetwork, self).__init__(label=label)
         self.bot = nstbot.PushBot()
-        self.bot.connect(connection)
+
+        if connection is not None:
+            self.bot.connect(connection)
 
         with self:
             if motor:

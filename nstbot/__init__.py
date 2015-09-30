@@ -7,8 +7,10 @@ import nengo
 from nengo.pushbot_network import PushBotNetwork
 
 # Attempt to inport SpiNNaker builder code
-try:
-    from nengo import spinnaker
+#try:
+from nengo import spinnaker
 
-except ImportError:
-    pass
+from nengo.spinnaker import add_spinnaker_params
+#except ImportError:
+#    print "MERDE"
+#    #pass

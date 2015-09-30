@@ -1,34 +1,55 @@
 import numpy as np
 
+# Nengo imports
+from nengo.params import Parameter
+
+# Rig imports
 from rig.bitfield import (
     BitField, UnavailableFieldError
 )
+
+from rig.machine import Links
 
 from rig.place_and_route.constraints import (
     LocationConstraint, RouteEndpointConstraint
 )
 
+# Nengo SpiNNaker imports
 from nengo_spinnaker.netlist import (
     Net, Vertex
 )
 
 from nengo_spinnaker.builder.builder import (
-    InputPort, Model, OutputPort, ObjectPort, spec
+    Model, ObjectPort, spec
+)
+
+from nengo_spinnaker.builder.model import (
+    InputPort, OutputPort, SignalParameters
+)
+
+from nengo_spinnaker.builder.node import PassthroughNodeTransmissionParameters
+
+from nengo_spinnaker.operators.filter import (
+    Filter
 )
 
 from nengo_spinnaker.operators.mc_player import (
     MulticastPacketSender, Packet
 )
 
+from nengo_spinnaker.utils.config import getconfig
+
 from . import pushbot_network
 
 @Model.builders.register(pushbot_network.MotorNode)
 def build_motor(model, motor):
+    print("Building motor node")
+
     # Get or create parent NST bot keyspace
     keyspace = get_create_nstbot_keyspace(model)
 
     # Get or create MC player and offchip vertex associated with bot
-    mc_player, offchip_vertex = get_create_mc_player_offchip_vertex(motor, bot)
+    mc_player, offchip_vertex = get_create_mc_player_offchip_vertex(model, motor)
 
     # Create child keyspace with motor-specific fields
     motor_keyspace = keyspace(payload_format=0, command_id=32)
@@ -41,21 +62,22 @@ def build_motor(model, motor):
     # Add connection to model
     model.connection_map.add_connection(motor_filter, OutputPort.standard,
                                         SignalParameters(latching=True, keyspace=motor_keyspace),
-                                        PassthroughNodeTransmissionParameters(np.eye() * 100.0),
+                                        PassthroughNodeTransmissionParameters(np.eye(2) * 100.0),
                                         offchip_vertex, None, None)
 
     # Create key for command to turn on and off motors and
-    enable_disable_motor_key = keyspace(payload_format=0, command_id=2, dimension=0)
+    enable_disable_motor_key = keyspace(payload_format=0, command_id=2, index=0)
     mc_player.start_packets.append(Packet(enable_disable_motor_key, 1))
     mc_player.end_packets.append(Packet(enable_disable_motor_key, 0))
 
 
 @Model.sink_getters.register(pushbot_network.MotorNode)
 def get_motor_sink(model, conn):
+    print("Sinking connection into motor")
     # Motor will be replaced with a filter to combine the output of
     # multiple inputs during build_motor so simply connect input
     # to filter's standard input port
-    motor = model.object_operators[connection.post_obj]
+    motor = model.object_operators[conn.post_obj]
     return spec(ObjectPort(motor, InputPort.standard))
 
 
@@ -79,12 +101,15 @@ def get_beep_sink(model, conn):
     pass
 
 
-def get_create_mc_player_offchip_vertex(model, bot):
+def get_create_mc_player_offchip_vertex(model, pushbot_node):
+    bot = pushbot_node.bot
+    print("Bot:", bot)
     # If MC player hasn't already been instantiated
     # **TODO** checks for mc_player
-    if bot not in object_operators:
+    if bot not in model.object_operators:
+        print("Bot not present")
         mc_player = MulticastPacketSender()
-        object_operators[bot] = mc_player
+        model.object_operators[bot] = mc_player
 
         # Get or create parent NST bot keyspace
         keyspace = get_create_nstbot_keyspace(model)
@@ -98,8 +123,8 @@ def get_create_mc_player_offchip_vertex(model, bot):
         # Build vertex constrained to bot location and route
         bot.offchip_vertex = Vertex()
         bot.offchip_vertex.contraints = [
-            LocationConstraint(offchip_vertex, bot_location),
-            RouteEndpointConstraint(offchip_vertex, route_to_bot),
+            LocationConstraint(bot.offchip_vertex, bot_location),
+            RouteEndpointConstraint(bot.offchip_vertex, route_to_bot),
         ]
 
         model.extra_vertices.append(bot.offchip_vertex)
@@ -110,7 +135,7 @@ def get_create_mc_player_offchip_vertex(model, bot):
         )
 
     # Return MC player
-    return object_operators[bot], bot.offchip_vertex
+    return model.object_operators[bot], bot.offchip_vertex
 
 def get_create_nstbot_keyspace(model):
     # Get NST bot keyspace
@@ -122,11 +147,23 @@ def get_create_nstbot_keyspace(model):
     # **YUCK** determine if keyspace has been initialise
     # by querying command_id field (arbitrarily)
     try:
-        command_id = keyspace["command_id"]
+        command_id = keyspace.command_id
     except UnavailableFieldError:
+        print "Building robot keyspace"
         # If it fails add keyspace fields
-        keyspace.add_field("dimension", length=3, start_at=0)
+        keyspace.add_field("index", length=3, start_at=0)
         keyspace.add_field("payload_format", length=1, start_at=3)
         keyspace.add_field("command_id", length=7, start_at=4)
 
+        # **YUCK** cluster field is required by keyspace region writing
+        keyspace.add_field("cluster", length=1)
+
     return keyspace
+
+def add_spinnaker_params(config):
+    """Add SpiNNaker specific parameters to a configuration object."""
+    # Add simulator parameters
+    config.configures(pushbot_network.PushBotNetwork)
+
+    config[pushbot_network.PushBotNetwork].set_param("bot_location", Parameter(default=(1, 0)))
+    config[pushbot_network.PushBotNetwork].set_param("route_to_bot", Parameter(default=Links.east))
