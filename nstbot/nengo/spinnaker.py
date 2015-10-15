@@ -66,7 +66,7 @@ def build_motor(model, motor):
                                         offchip_vertex, None, None)
 
     # Create key for command to turn on and off motors and
-    enable_disable_motor_key = keyspace(payload_format=0, command_id=2, index=0)
+    enable_disable_motor_key = keyspace(payload_format=0, command_id=2, index=0, cluster=0)
     mc_player.start_packets.append(Packet(enable_disable_motor_key, 1))
     mc_player.end_packets.append(Packet(enable_disable_motor_key, 0))
 
