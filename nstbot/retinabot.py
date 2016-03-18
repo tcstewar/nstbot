@@ -78,7 +78,13 @@ class RetinaBot(nstbot.NSTBot):
 
     def image_loop(self, decay, display_mode):
         import pylab
-        fig = pylab.figure()
+
+        import matplotlib.pyplot as plt
+        # using axis for updating only parts of the image that change
+        fig, ax = plt.subplots()
+        # so quick mode can run on ubuntu
+        plt.show(block=False)
+
         pylab.ion()
         img = pylab.imshow(self.image, vmax=1, vmin=-1,
                                        interpolation='none', cmap='binary')
@@ -103,6 +109,7 @@ class RetinaBot(nstbot.NSTBot):
             scatter = None
 
         while True:
+
             img.set_data(self.image)
 
             for k, rect in regions.items():
@@ -115,12 +122,21 @@ class RetinaBot(nstbot.NSTBot):
                 scatter.set_color(c)
 
             if display_mode == 'quick':
-                # this is much faster, but doesn't work on all systems
+                # this is faster, but doesn't work on all systems
                 fig.canvas.draw()
+                fig.canvas.flush_events()
+
+            elif display_mode == 'ubuntu_quick':
+                # this is even faster, but doesn't work on all systems
+                ax.draw_artist(ax.patch)
+                ax.draw_artist(img)
+                ax.draw_artist(scatter)
+                fig.canvas.update()
+
                 fig.canvas.flush_events()
             else:
                 # this works on all systems, but is kinda slow
-                pylab.pause(0.001)
+                pylab.pause(1e-8)
 
             self.image *= decay
 
