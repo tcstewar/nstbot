@@ -76,6 +76,11 @@ class RetinaBot(nstbot.NSTBot):
             thread.daemon = True
             thread.start()
 
+    def keep_image(self):
+        if self.image is None:
+            self.image = np.zeros((128, 128), dtype=float)
+
+
     def image_loop(self, decay, display_mode):
         import pylab
 
