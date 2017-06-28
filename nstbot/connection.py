@@ -3,7 +3,7 @@ class Serial(object):
         import serial
         self.conn = serial.Serial(port, baudrate=baud, rtscts=True, timeout=0)
     def send(self, message):
-        self.conn.write(message)
+        self.conn.write(message.encode('utf-8'))
     def receive(self):
         return self.conn.read(1024)
     def close(self):

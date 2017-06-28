@@ -149,7 +149,7 @@ class RetinaBot(nstbot.NSTBot):
     def sensor_loop(self):
         """Handle all data coming from the robot."""
         old_data = None
-        buffered_ascii = ''
+        buffered_ascii = b''
         while True:
             packet_size = self.retina_packet_size
             # grab the new data
@@ -195,8 +195,8 @@ class RetinaBot(nstbot.NSTBot):
                     self.process_retina(data_all)
 
             # and process the ascii events too
-            while '\n' in buffered_ascii:
-                cmd, buffered_ascii = buffered_ascii.split('\n', 1)
+            while b'\n' in buffered_ascii:
+                cmd, buffered_ascii = buffered_ascii.split(b'\n', 1)
                 self.process_ascii(cmd)
 
     def process_ascii(self, message):
