@@ -10,6 +10,7 @@ class RetinaBot(nstbot.NSTBot):
         self.retina(False)
         self.retina_packet_size = None
         self.image = None
+        self.record_file = None
         self.count_spike_regions = None
         self.track_periods = None
         self.sensor = {}
@@ -56,6 +57,8 @@ class RetinaBot(nstbot.NSTBot):
 
     def disconnect(self):
         self.retina(False)
+        if self.record_file is not None:
+            self.record_file.close()
         super(RetinaBot, self).disconnect()
 
     def retina(self, active, bytes_in_timestamp=4):
@@ -218,6 +221,9 @@ class RetinaBot(nstbot.NSTBot):
         packet_size = self.retina_packet_size
         y = data[::packet_size] & 0x7f
         x = data[1::packet_size] & 0x7f
+
+        if self.record_file is not None:
+            self.record_file.write(data)
         if self.image is not None:
             value = np.where(data[1::packet_size]>=0x80, 1, -1)
             self.image[y, x] += value
@@ -349,3 +355,6 @@ class RetinaBot(nstbot.NSTBot):
         x = self.p_x[index] / 64.0 - 1
         y = - self.p_y[index] / 64.0 + 1
         return x, y, self.track_certainty[index]
+
+    def record_retina_data(self, filename):
+        self.record_file = file(filename, 'wb')
